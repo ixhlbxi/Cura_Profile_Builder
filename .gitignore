@@ -46,6 +46,10 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
+# Translations
+*.mo
+*.pot
+
 # Environments
 .env
 .venv
@@ -55,25 +59,39 @@ ENV/
 env.bak/
 venv.bak/
 
-# IDE settings
+# IDE / Editor settings
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
 
-# OS files
+# macOS
 .DS_Store
-Thumbs.db
+.AppleDouble
+.LSOverride
+._*
 
-# Project-specific
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Output files (user-generated profiles)
 *.curaprofile
 !example_*.curaprofile
 
-# User-generated output
-output/
+# Input files (user JSON extractions)
 *.json
-!example_*.json
+!example_input.json
 
-# Logs
+# Log files
 *.log
+
+# Local configuration overrides
+local_config.py
