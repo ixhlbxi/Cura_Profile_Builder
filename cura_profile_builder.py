@@ -158,6 +158,7 @@ MATERIAL_PRESETS = {
 QUALITY_PRESETS = {
     "draft": {
         "description": "Fast draft - 0.28mm layers, quick prints",
+        "quality_type": "low",  # Cura's quality_type identifier
         "settings": {
             "layer_height": 0.28,
             "layer_height_0": 0.28,
@@ -165,6 +166,7 @@ QUALITY_PRESETS = {
     },
     "normal": {
         "description": "Standard quality - 0.2mm layers, balanced",
+        "quality_type": "standard",  # Cura's quality_type identifier
         "settings": {
             "layer_height": 0.2,
             "layer_height_0": 0.2,
@@ -172,6 +174,7 @@ QUALITY_PRESETS = {
     },
     "fine": {
         "description": "Fine quality - 0.12mm layers, detailed prints",
+        "quality_type": "super",  # Cura's quality_type identifier
         "settings": {
             "layer_height": 0.12,
             "layer_height_0": 0.2,
@@ -179,6 +182,7 @@ QUALITY_PRESETS = {
     },
     "ultra": {
         "description": "Ultra fine - 0.08mm layers, maximum detail",
+        "quality_type": "ultra",  # Cura's quality_type identifier
         "settings": {
             "layer_height": 0.08,
             "layer_height_0": 0.16,
@@ -484,16 +488,18 @@ class SettingMetadata:
             min_warn = info.get("minimum_value_warning")
             max_warn = info.get("maximum_value_warning")
             
-            if min_val is not None and value < min_val:
+            # Skip validation if bounds are formulas (strings) - we can't evaluate them
+            # Cura uses formulas like "0.001 * machine_nozzle_size" which require context
+            if min_val is not None and isinstance(min_val, (int, float)) and value < min_val:
                 return False, f"Value {value} below minimum {min_val}"
-            if max_val is not None and value > max_val:
+            if max_val is not None and isinstance(max_val, (int, float)) and value > max_val:
                 return False, f"Value {value} above maximum {max_val}"
             
-            # Warnings (valid but noted)
+            # Warnings (valid but noted) - also skip formula-based bounds
             warnings = []
-            if min_warn is not None and value < min_warn:
+            if min_warn is not None and isinstance(min_warn, (int, float)) and value < min_warn:
                 warnings.append(f"below recommended {min_warn}")
-            if max_warn is not None and value > max_warn:
+            if max_warn is not None and isinstance(max_warn, (int, float)) and value > max_warn:
                 warnings.append(f"above recommended {max_warn}")
             
             if warnings:
@@ -635,7 +641,10 @@ class CuraBuilder:
         
         if definitions_dir.exists():
             for def_file in definitions_dir.glob("*.def.json"):
-                name = def_file.stem
+                # Strip both .def.json suffixes to get bare name
+                name = def_file.name
+                if name.endswith('.def.json'):
+                    name = name[:-9]  # Remove '.def.json'
                 # Skip abstract base definitions
                 if name not in ("fdmprinter", "fdmextruder"):
                     definitions.append(name)
@@ -644,7 +653,21 @@ class CuraBuilder:
     
     def validate_definition(self, definition_name: str) -> bool:
         """Check if a machine definition exists."""
-        return definition_name in self.available_definitions or definition_name == "fdmprinter"
+        # Normalize: strip .def.json or .def suffix if present
+        normalized = definition_name
+        if normalized.endswith('.def.json'):
+            normalized = normalized[:-9]
+        elif normalized.endswith('.def'):
+            normalized = normalized[:-4]
+        return normalized in self.available_definitions or normalized == "fdmprinter"
+    
+    def normalize_definition(self, definition_name: str) -> str:
+        """Normalize definition name by stripping file extensions."""
+        if definition_name.endswith('.def.json'):
+            return definition_name[:-9]
+        elif definition_name.endswith('.def'):
+            return definition_name[:-4]
+        return definition_name
     
     def validate_settings(self, settings: Dict[str, Any]) -> Tuple[bool, List[str], List[str]]:
         """
@@ -735,7 +758,8 @@ class CuraBuilder:
         Returns:
             (success, message, output_path)
         """
-        # Validate definition
+        # Normalize and validate definition
+        definition = self.normalize_definition(definition)
         if self.available_definitions and not self.validate_definition(definition):
             available_sample = self.available_definitions[:10]
             return False, f"Unknown definition: {definition}. Examples: {available_sample}...", None
@@ -836,6 +860,9 @@ class CuraBuilder:
         if quality_lower not in QUALITY_PRESETS:
             return False, f"Unknown quality: {quality_preset}. Available: {list(QUALITY_PRESETS.keys())}", None
         
+        # Get Cura's quality_type identifier from preset
+        quality_type = QUALITY_PRESETS[quality_lower].get("quality_type", quality_lower)
+        
         # Merge presets (quality first, then material, then custom)
         settings = {}
         settings.update(QUALITY_PRESETS[quality_lower]["settings"])
@@ -847,7 +874,7 @@ class CuraBuilder:
         return self.build_curaprofile(
             profile_name=profile_name,
             definition=definition,
-            quality_type=quality_lower,
+            quality_type=quality_type,
             global_settings=settings,
             output_path=output_path
         )
