@@ -1,0 +1,21 @@
+# Cura Profile Builder - Requirements
+# ====================================
+#
+# This tool has NO external dependencies.
+# It uses only Python standard library modules:
+#   - argparse (CLI)
+#   - configparser (INI file generation)
+#   - json (JSON parsing)
+#   - pathlib, os, sys (filesystem)
+#   - zipfile (profile packaging)
+#   - io, re, datetime (utilities)
+#   - tkinter (GUI - optional, Phase 2)
+#
+# Just run it:
+#   python cura_profile_builder.py --help
+#
+# Requires: Python 3.7+
+#
+# Tkinter is optional (only for future GUI mode):
+#   - Windows/Mac: Usually included with Python
+#   - Linux: sudo apt install python3-tk
